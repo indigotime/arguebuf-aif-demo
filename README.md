@@ -3,4 +3,4 @@
 Using Arguebuf - a TypeScript library for dealing with argument graphs.
 
 # Usage
-Download entire repo, unzip and open aif-test.html with any browser.
+Download the entire repo, unzip it, and open aif-test.html in any browser.
