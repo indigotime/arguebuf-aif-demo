@@ -1,7 +1,6 @@
-# Arguebuf TypeScript
+# Argdown to AIF conversion demo
 
-A TypeScript library for dealing with argument graphs.
+Using Arguebuf - a TypeScript library for dealing with argument graphs.
 
-## Development
-
-To pull the testing data, make sure to install [DVC](https://dvc.org/doc/install) and run `dvc pull` in the root directory of the repository.
+# Usage
+Download entire repo, unzip and open aif-test.html with any browser.
