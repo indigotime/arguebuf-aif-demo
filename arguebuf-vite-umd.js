@@ -29371,6 +29371,7 @@
     GraphvizEngine2["OSAGE"] = "osage";
     GraphvizEngine2["TWOPI"] = "twopi";
   })(GraphvizEngine || (GraphvizEngine = {}));
+
   function argdown(obj) {
     const app = new ArgdownApplication();
     const parserPlugin = new ParserPlugin();
@@ -29393,35 +29394,45 @@
     };
     const response = app.run(request);
     if (response.map !== void 0) {
-      const map2 = response.map;
-      const nodes = Object.fromEntries(
-        map2.nodes.filter((value) => inEdges(value, map2.edges)).map((n2) => {
-          const argdownNode = nodefromArgdown(n2);
-          return [argdownNode.id, argdownNode];
-        })
-      );
-      const edges = {};
-      map2.edges.forEach((e) => {
-        const schemeNode = schemeNodeFromEdge(e);
-        nodes[schemeNode.id] = schemeNode;
-        const e1 = new Edge({
-          source: e.from.id,
-          target: schemeNode.id,
-          metadata: new Metadata()
-        });
-        edges[e1.id] = e1;
-        const e2 = new Edge({
-          source: schemeNode.id,
-          target: e.to.id,
-          metadata: new Metadata()
-        });
-        edges[e2.id] = e2;
-      });
-      return new Graph({
-        metadata: new Metadata(),
-        nodes,
-        edges
-      });
+		const aifMap = response.map;
+		const idMappingArgdownToAif = {};
+		const nodes = Object.fromEntries(
+			aifMap.nodes.filter((value) => inEdges(value, aifMap.edges)).map((n2) => {
+				const argdownNode = nodefromArgdown(n2);
+				idMappingArgdownToAif[n2.id] = argdownNode.id;
+				return [argdownNode.id, argdownNode];
+        		})
+      		);
+		const edges = {};
+		aifMap.edges.forEach((e) => {
+			const schemeNode = schemeNodeFromEdge(e);
+			nodes[schemeNode.id] = schemeNode;
+			let e1Source = e.from.id;
+			if ((nodes[e1Source] == null) && (idMappingArgdownToAif[e1Source] != null) && (nodes[idMappingArgdownToAif[e1Source]] != null)) {
+				e1Source = idMappingArgdownToAif[e1Source];
+			}
+			let e2Target = e.to.id;
+			if ((nodes[e2Target] == null) && (idMappingArgdownToAif[e2Target] != null) && (nodes[idMappingArgdownToAif[e2Target]] != null)) {
+				e2Target = idMappingArgdownToAif[e2Target];
+			}
+			const e1 = new Edge({
+			  source: e1Source,
+			  target: schemeNode.id,
+			  metadata: new Metadata()
+			});
+			edges[e1.id] = e1;
+			const e2 = new Edge({
+			  source: schemeNode.id,
+			  target: e2Target,
+			  metadata: new Metadata()
+			});
+			edges[e2.id] = e2;
+		});
+		return new Graph({
+			metadata: new Metadata(),
+			nodes,
+			edges
+		});
     } else {
       return new Graph({
         metadata: new Metadata()
