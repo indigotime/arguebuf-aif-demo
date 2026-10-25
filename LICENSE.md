@@ -11,9 +11,9 @@ This project includes a modified, reduced version of
 [OVA3](https://github.com/arg-tech/OVA3).
 
 Original copyright and attribution notices: see
-[`LICENSES/OVA3/NOTICE.md`](LICENSES/OVA3/NOTICE.md).
+[`LICENSES/OVA3/NOTICE.MD`](LICENSES/OVA3/NOTICE.MD).
 The applicable license and its version are identified in
-[`LICENSES/OVA3/LICENSE.md`](LICENSES/OVA3/LICENSE.md).
+[`LICENSES/OVA3/LICENSE.MD`](LICENSES/OVA3/LICENSE.MD).
 
 Changes made to OVA3:
 - Removed functions for saving to a centralized database.
@@ -25,7 +25,7 @@ Changes made by [Indigotime](https://github.com/Indigotime), 2026.
 
 Changes made to OVA3 are licensed under the same license and version as the
 corresponding OVA3 material, as identified in
-[`LICENSES/OVA3/LICENSE.md`](LICENSES/OVA3/LICENSE.md).
+[`LICENSES/OVA3/LICENSE.md`](LICENSES/OVA3/LICENSE.MD).
 
 ## arguebuf-typescript
 
@@ -34,10 +34,10 @@ This project uses the browser build of
 distributed as a single JavaScript file.
 
 The applicable license and original copyright notice are preserved in
-[`LICENSES/arguebuf-typescript/LICENSE.md`](LICENSES/arguebuf-typescript/LICENSE.md).
+[`LICENSES/arguebuf-typescript/LICENSE.MD`](LICENSES/arguebuf-typescript/LICENSE.MD).
 
 ## Original contributions
 
 Original contributions in this repository that are not part of OVA3 or
 `arguebuf-typescript` are licensed under the MIT License. See
-[`LICENSES/PROJECT-MIT-LICENSE.md`](LICENSES/PROJECT-MIT-LICENSE.md).
+[`LICENSES/PROJECT-MIT-LICENSE.MD`](LICENSES/PROJECT-MIT-LICENSE.MD).
