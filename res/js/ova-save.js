@@ -130,8 +130,6 @@ function genjson() {
 function genlink() {
 	alink = window.location;
 	$('#shareinput').val(alink);
-	console.log(nodes);
-	console.log(edges);
 	document.getElementById("edited-by").innerHTML = "Analysis edited by: " + users.toString();
 	return false;
 }
@@ -262,7 +260,7 @@ async function loadFile(jstr, multi) {
 		        json = arguebuf.dump.aif(argdownGraph);
 		}
 		catch(ex) {
-			console.log(ex);
+			console.error(ex);
 			return false;
 		}
 	}
@@ -303,7 +301,6 @@ async function loadFile(jstr, multi) {
  * @returns {Promise<Boolean>} - Indicates if the JSON file was successfully loaded (true) or not (false)
  */
 async function loadOva3Json(json, oplus, offset) {
-    console.log("loading OVA3 json");
     //load the analysis text or URL
     var text = false;
     if (json['text'].hasOwnProperty("txt")) {
@@ -434,7 +431,6 @@ async function loadOva3Json(json, oplus, offset) {
  * @returns {Promise<Boolean>} - Indicates if the JSON file was successfully loaded (true) or not (false)
  */
 async function loadOva2Json(json, oplus, offset) {
-    console.log("loading OVA2 json");
     //load participants
     var p = json['participants'];
     var newPID = 0;
@@ -657,8 +653,6 @@ function loadText(text) {
  * @return {Promise<Boolean>} - Indicates if the JSON file was successfully loaded (true) or not (false)
  */
 async function loaddbjson(json, oplus, offset) {
-    console.log("loading DB json");
-
     //load nodes
     var nodelist = {};
     var jnodes = json['nodes'];
@@ -791,7 +785,6 @@ async function loaddbjson(json, oplus, offset) {
 
 
     //load edges
-    console.log("Loading edges");
     var edgeStart = edges.length;
     var e = json['edges'];
     var edgeList = {};
@@ -800,17 +793,11 @@ async function loaddbjson(json, oplus, offset) {
         from = ((count + e[i].fromID));
         to = ((count + e[i].toID));
         id = (count + e[i].fromID) + "_" + (count + e[i].toID);
-	console.log(i);
-	console.log(from in nodelist);
-	console.log(to in nodelist);
-	console.log(id in edgeList);
-	console.log(e[i]);
         if ((from in nodelist) && (to in nodelist) && !(id in edgeList)) { //if both the nodes the edge connects exist and the edge hasn't already been loaded
             indexF = findNodeIndex(from, true);
             indexT = findNodeIndex(to, true);
             visible = nodes[indexF].visible && nodes[indexT].visible ? true : false; //if the edge connects an invisible node it should also be invisible
             edgeList[id] = newEdge(from, to, visible, 1, false);
-		console.log("edge visibility: "+visible);
             if (visible) {
                 DrawEdge(from, to);
                 UpdateEdge(edgeList[id]);
