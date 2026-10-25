@@ -1,7 +1,10 @@
 # Argdown to AIF conversion demo
 
-Using Arguebuf - a TypeScript library for dealing with argument graphs.
+Using Arguebuf-typescript - a TypeScript library for dealing with argument graphs.
+Using modified version of OVA3 - the latest release of the Online Visualisation of Argument analysis tool.
 
 # Usage
 
-Download the repository as a ZIP file, extract it, and open aif-test.html in a web browser.
+Download the repository as a ZIP file and extract it.
+Open aif-test.html in a web browser to try the ArgDown-to-AIF conversion demo. Paste valid ArgDown text and run the conversion.
+Open analyse.html to visualize arguments. Load an ArgDown or AIF file to view its argument map.
