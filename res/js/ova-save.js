@@ -1,0 +1,987 @@
+/**
+ * Generates a JSON to represent the current analysis
+ * @returns {String} - The generated JSON as a string
+ */
+function genjson() {
+    var json = {}
+    var jnodes = [];
+    var jschemeFulfillments = [];
+    var jdescriptorFulfillments = [];
+    var jcqFulfillments = [];
+    var jlocutions = [];
+    var jedges = [];
+    var nodesLayout = [];
+    var edgesLayout = [];
+
+    for (var i = 0, l = nodes.length; i < l; i++) {
+        var jnode = {};
+        jnode['nodeID'] = nodes[i].nodeID;
+        jnode['text'] = nodes[i].text;
+        jnode['type'] = nodes[i].type;
+        jnodes.push(jnode);
+
+        var n = {};
+        n['nodeID'] = nodes[i].nodeID;
+        n['visible'] = nodes[i].visible;
+        n['x'] = nodes[i].x;
+        n['y'] = nodes[i].y;
+        n['timestamp'] = nodes[i].timestamp;
+        nodesLayout.push(n);
+
+        if (nodes[i].scheme != null) {
+            var jschemeFulfillment = {};
+            jschemeFulfillment['nodeID'] = nodes[i].nodeID;
+            jschemeFulfillment['schemeID'] = nodes[i].scheme;
+            jschemeFulfillments.push(jschemeFulfillment);
+        }
+
+        if (Symbol.iterator in nodes[i].descriptors) {
+            for (d of nodes[i].descriptors) {
+                if (d.descriptorID !== null && d.descriptorID !== "null") {
+                    var jdescriptorFulfillment = {};
+                    jdescriptorFulfillment['nodeID'] = nodes[i].nodeID;
+                    jdescriptorFulfillment['descriptorID'] = d.descriptorID;
+                    jdescriptorFulfillment['selectedID'] = d.selectedID;
+                    jdescriptorFulfillments.push(jdescriptorFulfillment);
+                }
+            }
+        }
+
+        if (Symbol.iterator in nodes[i].cqdesc) {
+            for (cq of nodes[i].cqdesc) {
+                if (cq.descriptorID !== null && cq.descriptorID !== "null") {
+                    var jcqFulfillment = {};
+                    jcqFulfillment['nodeID'] = nodes[i].nodeID;
+                    jcqFulfillment['descriptorID'] = cq.descriptorID;
+                    jcqFulfillment['selectedID'] = cq.selectedID;
+                    jcqFulfillments.push(jcqFulfillment);
+                }
+            }
+        }
+
+        if (nodes[i].participantID != 0) {
+            var jlocution = {};
+            jlocution['nodeID'] = nodes[i].nodeID;
+            jlocution['personID'] = nodes[i].participantID;
+            // jlocution['start'] = Math.round(new Date(nodes[i].timestamp).getTime() / 1000);
+            if (nodes[i].timestamp !== "") {
+                var timestamp = new Date(nodes[i].timestamp);
+                var date = timestamp.toISOString().split("T", 2);
+                var time = date[1].split(".", 1);
+                jlocution['start'] = date[0] + " " + time;
+            } else { jlocution['start'] = null; }
+            jlocution['end'] = null;
+            jlocutions.push(jlocution);
+        }
+    }
+
+    for (var i = 0, l = edges.length; i < l; i++) {
+        var jedge = {};
+        jedge['edgeID'] = i + 1;
+        jedge['fromID'] = edges[i].fromID;
+        jedge['toID'] = edges[i].toID;
+        jedges.push(jedge);
+
+        var e = {};
+        e['fromID'] = edges[i].fromID;
+        e['toID'] = edges[i].toID;
+        e['visible'] = edges[i].visible;
+        edgesLayout.push(e);
+    }
+
+    var aif = {
+        "nodes": jnodes,
+        "edges": jedges,
+        "schemefulfillments": jschemeFulfillments,
+        "participants": participants,
+        "locutions": jlocutions,
+        "descriptorfulfillments": jdescriptorFulfillments,
+        "cqdescriptorfulfillments": jcqFulfillments
+    };
+    json['AIF'] = aif;
+
+    var url = getUrlVars()["url"];
+    var txt = '';
+    if (url == 'local') {
+        txt = getAllText();
+        url = '';
+    }
+
+    json['text'] = txt;
+
+    var ova = {
+        "firstname": window.afirstname,
+        "surname": window.asurname,
+        "url": url,
+        "nodes": nodesLayout,
+        "edges": edgesLayout
+    };
+    json['OVA'] = ova;
+
+    jstr = JSON.stringify(json);
+
+    return jstr;
+}
+
+/**
+ * Generates a link to share the current analysis
+ * @returns {Boolean}
+ */
+function genlink() {
+	alink = window.location;
+	$('#shareinput').val(alink);
+	console.log(nodes);
+	console.log(edges);
+	document.getElementById("edited-by").innerHTML = "Analysis edited by: " + users.toString();
+	return false;
+}
+
+/**
+ * Saves and downloads the current analysis as a JSON file called 'analysis.json'
+ * @returns {Boolean}
+ */
+function save2file() {
+	var jstr = genjson();
+	var dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(jstr);
+	var anchor = document.getElementById('saveFileOffline');
+	anchor.setAttribute("href", dataStr);
+	anchor.setAttribute("download", "analysis.json");
+	anchor.click();
+	window.unsaved = false;
+	return false;
+}
+
+/**
+ * Removes the current analysis
+ * @returns {Boolean}
+ */
+function clearAnalysis() {
+    var currentTxt = getAllText();
+    var exampleTxt = "Enter your text here...";
+    if (currentTxt != exampleTxt) {
+        //Clears the text
+        setAllText(exampleTxt);
+        postEdit("text", "edit", exampleTxt, 1);
+    }
+
+    for (var i = edges.length - 1; i >= 0; i--) { delEdge(edges[i]); } //Removes all edges
+    for (var i = nodes.length - 1; i >= 0; i--) { delNode(nodes[i]); } //Removes all nodes
+
+    //Clears the svg
+    SVGRoot.removeChild(SVGRootG);
+    SVGRootG = document.createElementNS("http://www.w3.org/2000/svg", 'g');
+    SVGRoot.appendChild(SVGRootG);
+    return false;
+}
+
+/**
+ * Updates the load analysis modal to show the replace current analysis option
+ * @param {Boolean} show - Indicates if the replace option should be shown (true) or not (false), optional
+ * @returns {Boolean}
+ */
+function showReplace(show) {
+    if (nodes.length > 0 || show) {
+        var replace = document.getElementById("load-replace");
+        replace.setAttribute("style", "display:block;");
+    } else if (!show) {
+        var replace = document.getElementById("load-replace");
+        replace.setAttribute("style", "display:none;");
+    }
+    return false;
+}
+
+/**
+ * Sets the checked property of a radio button to true
+ * @param {String} id - The ID of the radio button to check
+ * @returns {Boolean}
+ */
+function checkRadio(id) {
+    var radio = document.getElementById(id);
+    if (radio && !radio.checked) { radio.checked = true; }
+    return false;
+}
+
+/**
+ * Handles the selection and loading of AIF and OVA2 / OVA3 files
+ * @param {*} evt - The event
+ * @returns {Boolean}
+ */
+function loadFileBtn(evt) {
+    var files = evt.target.files; // FileList object
+    var multi = false;
+    var current = "";
+    var replace = document.getElementById("loadReplace");
+    var list = document.getElementById('list');
+    if (!replace.checked) { multi = true; current = list.innerHTML.slice(4, -5); }
+    else if (files.length > 1 && replace.checked) { multi = true; clearAnalysis(); } //multi must be set to true to load multiple files
+
+    var output = [];
+    for (var i = 0, f; f = files[i]; i++) {
+        var reader = new FileReader();
+        reader.readAsText(f);
+
+        if (list.innerHTML.includes('Loaded file: <strong>' + f.name)) { //if this file has already been loaded into the analysis then skip loading it again
+            alert("Cannot load file: " + f.name + " \nThe file has already been loaded into this analysis.");
+            current = list.innerHTML.slice(4, -5); //keep the previously loaded list even if replace was selected
+        } else { //load the file
+            output.push('<span style="font-size:0.8em;">Loaded file: <strong>', f.name, '</strong> - ',
+                f.size, ' bytes, last modified: ',
+                f.lastModifiedDate ? f.lastModifiedDate.toLocaleDateString() : 'n/a', '</span><br>');
+
+            reader.onload = (function (theFile) {
+                return function (e) {
+                    loadFile(e.target.result, multi);
+                    showReplace();
+                };
+            })(f);
+        }
+    }
+    list.innerHTML = '<ul>' + current + output.join('') + '</ul>';
+    $('#list').show();
+    return false;
+}
+
+
+/**
+ * Loads a JSON file
+ * @param {*} jstr - The JSON file to load
+ * @param {Boolean} multi - Indicates if the loaded analysis should replace the current analysis (false) or be added to it (true)
+ * @returns {Promise<Boolean>} - Indicates if the JSON file was successfully loaded (true) or not (false)
+ */
+async function loadFile(jstr, multi) {
+    var json;
+    if (typeof jstr !== 'object') {
+        try {
+		json = JSON.parse(jstr);
+	}
+        catch (e) {
+		try {
+		        // 1. Parse Argdown
+		        var argdownGraph = arguebuf.load.argdown(jstr);
+		        // 2. Convert to AIF
+		        json = arguebuf.dump.aif(argdownGraph);
+		}
+		catch(ex) {
+			console.log(ex);
+			return false;
+		}
+	}
+    } else {
+        json = jstr;
+    }
+
+    var offset = 60;
+    if (multi) {
+        offset = calOffset('y', 150);
+    } else {
+        clearAnalysis(); //remove the previous analysis before loading the new analysis
+    }
+
+    var oplus = false;
+    if ("plus" in getUrlVars()) {
+        oplus = true;
+    }
+
+    if (json['OVA']) { //if in OVA3 format
+        return await loadOva3Json(json, oplus, offset);
+    } else if (json['nodes']) {
+        var jnodes = json['nodes'];
+        if (jnodes.length > 0 && !(jnodes[0].hasOwnProperty('x'))) { //if in db format
+            return await loaddbjson(json, oplus, offset);
+        } else if (jnodes.length > 0 && jnodes[0].hasOwnProperty('id')) { //if in OVA2 format
+            return await loadOva2Json(json, oplus, offset);
+        }
+    }
+    return false;
+}
+
+/**
+ * Loads analysis maps from OVA3 formatted JSONs
+ * @param {Object} json - The json to be loaded in
+ * @param {Boolean} oplus - Indicates if the analysis should be loaded in dialogical (true) or non-dialogical (false) mode
+ * @param {Number} offset - The offset to be added to the y coordinates
+ * @returns {Promise<Boolean>} - Indicates if the JSON file was successfully loaded (true) or not (false)
+ */
+async function loadOva3Json(json, oplus, offset) {
+    console.log("loading OVA3 json");
+    //load the analysis text or URL
+    var text = false;
+    if (json['text'].hasOwnProperty("txt")) {
+        if (json['text']['txt'] != "") { text = loadText(json['text']['txt']); }
+    }
+    else if (json['text'] != "") {
+        text = loadText(json['text']);
+    }
+
+    if (oplus) {
+        //load participants
+        var p = json['AIF']['participants'];
+        var locutions = json['AIF']['locutions'];
+        var ids = {};
+        var pIDold = 0;
+        for (var i = 0, l = locutions.length; i < l; i++) {
+            if (pIDold != locutions[i].personID) {
+                pIDold = locutions[i].personID;
+                participant = p.find(p => p.participantID == locutions[i].personID);
+                pIDnew = addParticipant(participant.firstname, participant.surname).participantID;
+            }
+            ids[locutions[i].nodeID] = pIDnew;
+        }
+    }
+
+    //create the nodes
+    var jnodes = json['AIF']['nodes'];
+    var nodelist = {};
+    var pID = 0;
+    var toMark = [];
+    for (var i = 0, l = jnodes.length; i < l; i++) {
+        if (oplus) {
+            if (jnodes[i].type == "L") {
+                pID = typeof ids[jnodes[i].nodeID] == 'undefined' ? 0 : ids[jnodes[i].nodeID];
+                nodelist[jnodes[i].nodeID] = newNode(jnodes[i].nodeID, jnodes[i].type, null, pID, jnodes[i].text, 0, 0, false, 1, "", false, false);
+            } else {
+                nodelist[jnodes[i].nodeID] = newNode(jnodes[i].nodeID, jnodes[i].type, null, 0, jnodes[i].text, 0, 0, false, 1, "", false, false);
+            }
+        } else if (jnodes[i].type == "I" || jnodes[i].type == "RA" || jnodes[i].type == "CA" || jnodes[i].type == "MA" || jnodes[i].type == "EN") {
+            nodelist[jnodes[i].nodeID] = newNode(jnodes[i].nodeID, jnodes[i].type, null, 0, jnodes[i].text, 0, 0, false, 1, "", false, false);
+            if (jnodes[i].type == "I" && text) {
+                if (!hlUpdate(jnodes[i].nodeID, jnodes[i].type, jnodes[i].nodeID, false)) { toMark.push(jnodes[i].nodeID); } //store the node IDs that it failed to update for
+            }
+        }
+    }
+
+    window.nodeCounter += jnodes.length; //update the node counter
+    if (!oplus && text) { postEdit("text", "edit", $('#analysis_text').html(), 1); }
+
+    //set any scheme fulfillments
+    var sf = json['AIF']['schemefulfillments'];
+    if (sf != undefined) {
+        for (var i = 0; i < sf.length; i++) {
+            updateNodeScheme(sf[i].nodeID, sf[i].schemeID, 1, false);
+        }
+    }
+
+    //set any descriptor fulfillments
+    var df = json['AIF']['descriptorfulfillments'];
+    if (df != undefined) {
+        for (var i = 0; i < df.length; i++) {
+            addNodeDescriptor(df[i].nodeID, false, df[i].descriptorID, null, df[i].selectedID, 1, false);
+        }
+    }
+
+    //set any cq fulfillments
+    var cqf = json['AIF']['cqdescriptorfulfillments'];
+    if (cqf != undefined) {
+        for (var i = 0; i < cqf.length; i++) {
+            addNodeDescriptor(cqf[i].nodeID, true, cqf[i].descriptorID, null, cqf[i].selectedID, 1, false);
+        }
+    }
+
+    //set the layout of the nodes and draw them on the svg
+    var n = json['OVA']['nodes'];
+    var newX = 0, newY = 0, tstamp, mark;
+    var lowX = parseInt(n.reduce(minX).x);
+    var lowY = parseInt(n.reduce(minY).y);
+    for (var i = 0, l = n.length; i < l; i++) {
+        if (nodelist[n[i].nodeID]) {
+            if (n[i].visible) {
+                newX = parseInt(n[i].x) - lowX + 150;
+                newY = parseInt(n[i].y) + offset - lowY;
+                mark = toMark.includes(n[i].nodeID);
+                updateNode(n[i].nodeID, newX, newY, true, 1, false, nodelist[n[i].nodeID].type, nodelist[n[i].nodeID].scheme, nodelist[n[i].nodeID].text, "", mark);
+                DrawNode(nodelist[n[i].nodeID].nodeID, nodelist[n[i].nodeID].type, nodelist[n[i].nodeID].text, nodelist[n[i].nodeID].x, nodelist[n[i].nodeID].y, mark);
+                if (oplus && n[i].timestamp && n[i].timestamp != '') { //if in dialogical mode
+                    tstamp = n[i].timestamp.split(" (")[0]; //remove the timezone name from the timestamp
+                    updateTimestamp(n[i].nodeID, tstamp, 1, false);
+                    if (window.showTimestamps && nodelist[n[i].nodeID].type == 'L') { DrawTimestamp(n[i].nodeID, tstamp, nodelist[n[i].nodeID].x, nodelist[n[i].nodeID].y); }
+                }
+            }
+        }
+    }
+
+    //create and draw any connecting edges
+    var edgeStart = edges.length;
+    var e = json['OVA']['edges'];
+    var edgeList = {};
+    var from, to, id, indexF, indexT, visible;
+    for (var i = 0, l = e.length; i < l; i++) {
+        from = e[i].fromID;
+        to = e[i].toID;
+        id = from + "_" + to;
+        if (from in nodelist && to in nodelist && !(id in edgeList)) { //if both the nodes the edge connects exist and the edge hasn't already been loaded
+            indexF = findNodeIndex(from, true);
+            indexT = findNodeIndex(to, true);
+            visible = nodes[indexF].visible && nodes[indexT].visible ? true : false; //if the edge connects an invisible node it should also be invisible
+            edgeList[id] = newEdge(from, to, visible, 1, false);
+            if (visible) {
+                DrawEdge(from, to);
+                UpdateEdge(edgeList[id]);
+            }
+        }
+    }
+
+    if (toMark.length > 0) { hlReset(nodelist); }
+
+    var nodeStart = findNodeIndex(jnodes[0].nodeID, true);
+    return true;
+}
+
+/**
+ * Loads analysis maps from OVA2 formatted JSONs
+ * @param {Object} json - The json to be loaded in
+ * @param {Boolean} oplus - Indicates if the analysis should be loaded in dialogical (true) or non-dialogical (false) mode
+ * @param {Number} offset - The offset to be added to the y coordinates
+ * @returns {Promise<Boolean>} - Indicates if the JSON file was successfully loaded (true) or not (false)
+ */
+async function loadOva2Json(json, oplus, offset) {
+    console.log("loading OVA2 json");
+    //load participants
+    var p = json['participants'];
+    var newPID = 0;
+
+    var text = loadText(json['analysis']['txt']); //load text on LHS
+
+    //load nodes
+    var nodelist = {};
+    var jnodes = json['nodes'];
+    var nID = '';
+    var count = window.nodeCounter;
+    var newY = 0, x = 0;
+    var lowX = parseInt(jnodes.reduce(minX).x);
+    var lowY = parseInt(jnodes.reduce(minY).y);
+    var start = -1;
+    var spanAlert = false; var mark = false; var checkL = [];
+    for (var i = 0, l = jnodes.length; i < l; i++) {
+        if ((count + jnodes[i].id) > window.nodeCounter) {
+            window.nodeCounter = (count + jnodes[i].id); //update the node counter
+        }
+        nID = ((count + jnodes[i].id) + "_" + window.sessionid);
+        newY = parseInt(jnodes[i].y) + offset - lowY;
+        x = parseInt(jnodes[i].x) - lowX + 150;
+        if (oplus) {
+            if (jnodes[i].type == "L") {
+                mark = false;
+                if (jnodes[i].visible) {
+                    if (text) {
+                        if (!hlUpdate(jnodes[i].id, jnodes[i].type, nID, false)) { mark = true; }
+                    }
+                    DrawNode(nID, jnodes[i].type, jnodes[i].text, x, newY, mark);
+                    if (window.showTimestamps && jnodes[i].timestamp && jnodes[i].timestamp != '') { DrawTimestamp(nID, jnodes[i].timestamp, x, newY); }
+                }
+                if (jnodes[i].participantID != 0) {
+                    var participant = p.find(p => p.id == jnodes[i].participantID);
+                    newPID = addParticipant(participant.firstname, participant.surname).participantID;
+                }
+                nodelist[nID] = newNode(nID, jnodes[i].type, jnodes[i].scheme, newPID, jnodes[i].text, x, newY, jnodes[i].visible, 1, jnodes[i].timestamp, mark, false);
+                if (mark) { checkL.push(nodelist[nID]); } //add to array to check for reported speech locutions after edges added
+            } else {
+                nodelist[nID] = AddNode(jnodes[i].text, jnodes[i].type, jnodes[i].scheme, 0, nID, x, newY, jnodes[i].visible, 1, "", false, false);
+            }
+        } else if (jnodes[i].type == "I" || jnodes[i].type == "RA" || jnodes[i].type == "CA" || jnodes[i].type == "MA" || jnodes[i].type == "EN") {
+            mark = false;
+            if (jnodes[i].type == "I" && text) {
+                if (!hlUpdate(jnodes[i].id, jnodes[i].type, nID, false)) { mark = true; spanAlert = true; }
+            }
+            nodelist[nID] = AddNode(jnodes[i].text, jnodes[i].type, jnodes[i].scheme, 0, nID, x, newY, jnodes[i].visible, 1, "", mark, false);
+        }
+
+        if (start == -1) { start = findNodeIndex(nID, true); }
+    }
+    window.nodeCounter++; //update the node counter
+    if (text) { postEdit("text", "edit", $('#analysis_text').html(), 1); }
+
+    //load edges
+    var edgeStart = edges.length;
+    var e = json['edges'];
+    var edgeList = {};
+    var from, to, id, indexF, indexT, visible;
+    for (var i = 0, l = e.length; i < l; i++) {
+        from = ((count + e[i].from.id) + "_" + window.sessionid);
+        to = ((count + e[i].to.id) + "_" + window.sessionid);
+        id = (count + e[i].from.id) + "_" + (count + e[i].to.id);
+        if (from in nodelist && to in nodelist && !(id in edgeList)) { //if both the nodes the edge connects exist and the edge hasn't already been loaded
+            indexF = findNodeIndex(from, true);
+            indexT = findNodeIndex(to, true);
+            visible = nodes[indexF].visible && nodes[indexT].visible ? true : false; //if the edge connects an invisible node it should also be invisible
+            edgeList[id] = newEdge(from, to, visible, 1, false);
+            if (edgeList[id].visible) {
+                DrawEdge(from, to);
+                UpdateEdge(edgeList[id]);
+            }
+        }
+    }
+
+    //check for reported speech locutions
+    var nIn, nOut, foundIn, foundOut;
+    for (var i = 0; i < checkL.length; i++) {
+        nIn = getNodesIn(checkL[i]);
+        nOut = getNodesOut(checkL[i]);
+        foundIn = nIn.find(n => n.scheme == '74');
+        foundOut = nOut.find(n => n.scheme == '74');
+
+        if (typeof foundIn !== "undefined" && typeof foundOut !== "undefined") { markNode(checkL[i], false); } //unmark the node if its a reported speech locution
+        else { spanAlert = true; } //if not reported speech then should be linked to analysis text
+    }
+
+    if (spanAlert) { hlReset(nodelist); }
+
+    return true;
+}
+
+/**
+ * Remove any highlighted analysis text spans that aren't associated with a node in the analysis
+ * and alert the user to any nodes that need their text to be reselected
+ */
+function hlReset(nodelist) {
+    var spans = document.getElementsByClassName("highlighted");
+    var sID;
+    for (var i = spans.length - 1; i > 0; i--) {
+        sID = spans[i].id.substring(4);
+        if (!(sID in nodelist)) { console.log("removed span: " + sID); remhl(sID, 1); }
+    }
+    alert("Failed to link the analysis text to the marked nodes.\n\
+        \nFor each marked node, please reselect their text through the right click or edit node menu. If a marked node should not be linked to the text, right click it and select unmark.");
+}
+
+/**
+ * Calculates the offset from the top left of the svg box required to place another analysis map to the right (x offset) 
+ * or under (y offset) the current analysis map drawn on the svg
+ * @param {String} type - Represents offsetting from the x or y coordinates, must be either 'x' or 'y'
+ * @param {Number} space - The amount of space to add around the map
+ * @returns {Number} - The calculated offset or 60 if an offset can't be calculated
+ */
+function calOffset(type, space) {
+    var offset = 60;
+    if (nodes.length >= 1 && (type == 'x' || type == 'y')) { //if the current analysis contains any nodes and the type is x or y
+        var max = type == 'x' ? nodes.reduce(maxX) : nodes.reduce(maxY); //find the node with the highest x or y coordinate
+        offset += type == 'x' ? parseInt(max.x) : parseInt(max.y);
+        offset += space; //to add space around the map
+        var g = document.getElementById(max.nodeID);
+        if (g) { //if drawn on the svg then add the width or height
+            var rect = g.getElementsByTagName('rect')[0];
+            var w = rect.getAttribute('width') * 1;
+            var h = rect.getAttribute('height') * 1;
+            offset += type == 'x' ? Math.round(w) : Math.round(h); //plus the rounded width or height
+        } else { console.log("node not drawn on SVG: " + max.nodeID); }
+    }
+    return offset;
+}
+
+/**
+ * Compares two nodes to find the visible node with the highest x coordinate
+ * @param {Node} prev - The previous node
+ * @param {Node} curr - The current node
+ * @returns {Node} The node with the highest x coordinate
+ */
+function maxX(prev, curr) {
+    if (!curr.visible) { return prev; }
+    if (!prev.visible) { return curr; }
+    return parseInt(prev.x) > parseInt(curr.x) ? prev : curr;
+}
+
+/**
+ * Compares two nodes to find the visible node with the highest y coordinate
+ * @param {Node} prev - The previous node
+ * @param {Node} curr - The current node
+ * @returns {Node} The node with the highest y coordinate
+ */
+function maxY(prev, curr) {
+    if (!curr.visible) { return prev; }
+    if (!prev.visible) { return curr; }
+    return parseInt(prev.y) > parseInt(curr.y) ? prev : curr;
+}
+
+/**
+ * Compares two nodes to find the visible node with the lowest x coordinate
+ * @param {Node} prev - The previous node
+ * @param {Node} curr - The current node
+ * @returns {Node} The node with the lowest x coordinate
+ */
+function minX(prev, curr) {
+    if (!curr.visible) { return prev; }
+    if (!prev.visible) { return curr; }
+    return parseInt(prev.x) < parseInt(curr.x) ? prev : curr;
+}
+
+/**
+ * Compares two nodes to find the visible node with the lowest y coordinate
+ * @param {Node} prev - The previous node
+ * @param {Node} curr - The current node
+ * @returns {Node} The node with the lowest y coordinate
+ */
+function minY(prev, curr) {
+    if (!curr.visible) { return prev; }
+    if (!prev.visible) { return curr; }
+    return parseInt(prev.y) < parseInt(curr.y) ? prev : curr;
+}
+
+/**
+ * Loads and displays text
+ * @param {String} text - The text to be loaded in and displayed
+ * @returns {Boolean} - If the text was successfully loaded (true) or not (false)
+ */
+function loadText(text) {
+    if (text != "") {
+        var url = getUrlVars()["url"];
+        if (url != 'local') {
+            //update the url variable to be local without reloading
+            var currentUrl = new URL(window.location);
+            currentUrl.searchParams.set('url', 'local');
+            history.pushState(null, null, currentUrl);
+
+            var iframe = document.getElementById('extside');
+            iframe.setAttribute("style", "display:none;"); //hide the iframe
+            var textArea = document.getElementById('analysis_text');
+            textArea.setAttribute("style", "display:block;"); //show the text area on the left
+        }
+
+        //check if the current text displayed should be replaced or kept
+        var currentTxt = getAllText();
+        var exampleTxt = "Enter your text here...";
+        var waitTxt = "Loading URL, please wait.";
+        var allTxt = currentTxt !== exampleTxt && currentTxt !== waitTxt ? currentTxt + "<div><br></div>" + text : text;
+
+        //display the text in the analysis text div on the left
+        setAllText(allTxt);
+        postEdit("text", "edit", allTxt);
+        return true;
+    }
+    return false;
+}
+
+/**
+ * Loads analysis maps from AIF formatted JSONs
+ * @param {Object} json - The json to be loaded in
+ * @param {Boolean} oplus - Indicates if the analysis should be loaded in dialogical (true) or non-dialogical (false) mode
+ * @param {Number} offset - The offset to be added to the y coordinates
+ * @return {Promise<Boolean>} - Indicates if the JSON file was successfully loaded (true) or not (false)
+ */
+async function loaddbjson(json, oplus, offset) {
+    console.log("loading DB json");
+
+    //load nodes
+    var nodelist = {};
+    var jnodes = json['nodes'];
+    var count = window.nodeCounter;
+    var start, scheme;
+
+    for (var i = 0, l = jnodes.length; i < l; i++) {
+	var sign = (Math.random() < 0.5);
+        var node = jnodes[i];
+        var xpos = 50 + node.text.length * 35 + (i * 35);
+        var ypos = 50 + offset;
+	if (sign) {
+		ypos = ypos + (i * 35);
+	}
+	else {
+		ypos = ypos - (i * 35);
+	}
+
+        if ((count + node.nodeID) > window.nodeCounter) {
+            window.nodeCounter = (count + node.nodeID); //update the node counter
+        }
+        var nID = ((count + node.nodeID));
+
+        if (node.type == "CA") {
+            scheme = $('#s_cscheme option').filter(function () { return $(this).text() == node.text; }).val();
+            scheme = typeof scheme !== 'undefined' ? scheme : '71';
+            nodelist[nID] = AddNode(node.text, node.type, scheme, 0, nID, xpos, ypos, true, 1, "", false, false);
+        } else if (node.type == "RA") {
+            scheme = $('#s_ischeme option').filter(function () { return $(this).text() == node.text; }).val();
+            scheme = typeof scheme !== 'undefined' ? scheme : '72';
+            nodelist[nID] = AddNode(node.text, node.type, scheme, 0, nID, xpos, ypos, true, 1, "", false, false);
+        } else if (node.type == "I") {
+            nodelist[nID] = AddNode(node.text, node.type, null, 0, nID, xpos, ypos, true, 1, "", false, false);
+        } else if (node.type == "MA") {
+            scheme = $('#s_mscheme option').filter(function () { return $(this).text() == node.text; }).val();
+            scheme = typeof scheme !== 'undefined' ? scheme : '144';
+            nodelist[nID] = AddNode(node.text, node.type, scheme, 0, nID, xpos, ypos, true, 1, "", false, false);
+        } else if (oplus) {
+            if (node.type == "TA") {
+                scheme = $('#s_tscheme option').filter(function () { return $(this).text() == node.text; }).val();
+                scheme = typeof scheme !== 'undefined' ? scheme : '82';
+                nodelist[nID] = AddNode(node.text, node.type, scheme, 0, nID, xpos, ypos, true, 1, "", false, false);
+            } else if (node.type == "YA") {
+                if (node.text == 'Analysing') { //if an analyst node
+                    nodelist[nID] = AddNode(node.text, node.type, '75', 0, nID, 0, 0, false, 1, "", false, false);
+                } else {
+                    scheme = $('#s_lscheme option').filter(function () { return $(this).text() == node.text; }).val();
+                    scheme = typeof scheme !== 'undefined' ? scheme : '168';
+                    nodelist[nID] = AddNode(node.text, node.type, scheme, 0, nID, xpos, ypos, true, 1, "", false, false);
+                }
+            } else if (node.type == "PA") {
+                scheme = $('#s_pscheme option').filter(function () { return $(this).text() == node.text; }).val();
+                scheme = typeof scheme !== 'undefined' ? scheme : '161';
+                nodelist[nID] = AddNode(node.text, node.type, scheme, 0, nID, xpos, ypos, true, 1, "", false, false);
+            } else if (node.type == "L") {
+                nodelist[nID] = newNode(nID, node.type, null, 0, node.text, 0, 0, false, 1, "", false, false); //to prevent duplicate analyst nodes
+            }
+        }
+
+        if (i === 0) { start = findNodeIndex(nID, true); }
+    }
+
+    //set any scheme fulfillments
+    var sf = json['schemefulfillments'];
+    var newID = "";
+    if (sf != undefined) {
+        for (var i = 0; i < sf.length; i++) {
+            newID = ((count + sf[i].nodeID));
+            updateNodeScheme(newID, sf[i].schemeID, 1, false);
+        }
+    }
+
+    //set any descriptor fulfillments
+    var df = json['descriptorfulfillments'];
+    var newSelected = "";
+    if (df != undefined) {
+        for (var i = 0; i < df.length; i++) {
+            newID = ((count + df[i].nodeID));
+            newSelected = ((count + df[i].selectedID));
+            addNodeDescriptor(newID, false, df[i].descriptorID, null, newSelected, 1, false);
+        }
+    }
+
+    //set any cq fulfillments
+    var cqf = json['cqdescriptorfulfillments'];
+    if (cqf != undefined) {
+        for (var i = 0; i < cqf.length; i++) {
+            newID = ((count + cqf[i].nodeID));
+            newSelected = ((count + cqf[i].selectedID));
+            addNodeDescriptor(newID, true, cqf[i].descriptorID, null, newSelected, 1, false);
+        }
+    }
+
+    //set any timestamps and update the locutions
+    var l = json['locutions'];
+    var r = /\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}/;
+    var timestamp, start, tstamp, tsd, index, x;
+    var y = 50 + offset;
+    var participant = null;
+    var pName = [];
+    if (l != undefined) {
+        for (var i = 0; i < l.length; i++) {
+            newID = ((count + l[i].nodeID));
+            index = findNodeIndex(newID);
+            if (index > -1) { //if the node has been loaded
+                pName = getParticipantName(nodes[index].text);
+                participant = addParticipant(pName[0], pName[1]);
+                nodes[index].participantID = participant.participantID;
+
+                x = 50 + (i * 10);
+                updateNode(newID, x, y, true, 1, false);
+                DrawNode(newID, nodes[index].type, nodes[index].text, x, y);
+
+                //set timestamp
+                test = r.test(l[i].start);
+                if (test) { //if a valid date time stamp
+                    start = l[i].start.split(" ", 2); //split date and time
+                    tstamp = new Date(start[0] + "T" + start[1] + ".000Z"); //ISO string
+                    tsd = new Date();
+                    tsd.setTime(tstamp);
+                    timestamp = tsd.toString().split(" (")[0];
+                    updateTimestamp(newID, timestamp, 1, false);
+                    if (window.showTimestamps) {
+                        DrawTimestamp(nodes[index].nodeID, nodes[index].timestamp, nodes[index].x, nodes[index].y);
+                    }
+                } else { console.log("invalid date: '" + l[i].start + "'\nnode ID: " + newID); }
+            }
+        }
+    }
+
+
+    //load edges
+    console.log("Loading edges");
+    var edgeStart = edges.length;
+    var e = json['edges'];
+    var edgeList = {};
+    var from, to, id, indexF, indexT, visible;
+    for (var i = 0, l = e.length; i < l; i++) {
+        from = ((count + e[i].fromID));
+        to = ((count + e[i].toID));
+        id = (count + e[i].fromID) + "_" + (count + e[i].toID);
+	console.log(i);
+	console.log(from in nodelist);
+	console.log(to in nodelist);
+	console.log(id in edgeList);
+	console.log(e[i]);
+        if ((from in nodelist) && (to in nodelist) && !(id in edgeList)) { //if both the nodes the edge connects exist and the edge hasn't already been loaded
+            indexF = findNodeIndex(from, true);
+            indexT = findNodeIndex(to, true);
+            visible = nodes[indexF].visible && nodes[indexT].visible ? true : false; //if the edge connects an invisible node it should also be invisible
+            edgeList[id] = newEdge(from, to, visible, 1, false);
+		console.log("edge visibility: "+visible);
+            if (visible) {
+                DrawEdge(from, to);
+                UpdateEdge(edgeList[id]);
+            }
+        }
+    }
+    return true;
+}
+
+
+/**
+ * Converts part of a SVG to a canvas to a PNG image which can then be downloaded
+ * @param {Number} x - The lowest x coordinate for the selected part of the SVG
+ * @param {Number} y - The lowest y coordinate for the selected part of the SVG
+ * @param {Number} w - The width of the selected part of the SVG
+ * @param {Number} h - The height of the selected part of the SVG
+ * @param {Boolean} part - Indicates if part of the analysis is to be converted to an image (true) or the entire analysis (false)
+ */
+function svg2canvas2image(x, y, w, h, part) {
+    var canvas = document.createElement("canvas");
+    var space = 60; //the size of the margins
+    canvas.width = w + space;
+    canvas.height = h + space;
+    var ctx = canvas.getContext("2d");
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = 'white'; // background colour for the canvas
+    ctx.fillRect(0, 0, canvas.width, canvas.height); // fill the colour on the canvas
+
+    var svg = document.getElementById("inline");
+    var size = h > w ? h : w; //the width to height ratio of 1:1 must be kept for chrome
+    VB = [x, y, size, size];
+    svg.setAttribute('viewBox', [x, y, size, size]);
+    var str = new XMLSerializer().serializeToString(svg);
+    var svg64 = btoa(str.replace(/[\u00A0-\u2666]/g, function (c) {
+        return '&#' + c.charCodeAt(0) + ';';
+    }));
+
+    var image = new Image();
+    var image64 = 'data:image/svg+xml;base64,' + svg64;
+    image.src = image64;
+
+    image.onload = function () {
+        ctx.drawImage(image, space, space, size, size);
+        var imageURI = canvas.toDataURL("image/png").replace("image/png", "image/octet-stream");
+        var anchor;
+        if (part) {
+            anchor = document.getElementById("partDownloadBtn");
+            anchor.onclick = function () { closeModal('#modal-save'); checkRadio('fullImage'); $('#fullDownloadBtn').hide(); $('#partDownloadBtn').hide(); $('#imageOptions').hide(); $('#selectBtn').hide(); $('#saveOptions').show(); };
+            anchor.classList.add("save");
+        } else { anchor = document.getElementById("fullDownloadBtn"); }
+        anchor.download = "analysis.png";
+        anchor.href = imageURI;
+
+        window.unsaved = false;
+        $(canvas).remove();
+        openModal('#modal-save');
+        VB = [0, 0, 1500, 1500];
+        SVGRoot.setAttribute('viewBox', [0, 0, 1500, 1500]);
+    }
+}
+
+/**
+ * Handles saving the analysis map as an image
+ */
+function saveAsImage() {
+    var radioValue = $("input[name='saveImage']:checked").val();
+    if (radioValue == "select") { //if selecting part of the analysis to save as an image
+        closeModal('#modal-save');
+        $('#selectBtn').text("Reselect"); //update the select button
+        multiSel[0] = true;
+        window.saveImage = true;
+
+    } else if (radioValue == "full") {
+        //reset the select and part download buttons to their defaults
+        $('#selectBtn').text("Select");
+        var a = document.getElementById("partDownloadBtn");
+        a.onclick = function () { return false; };
+        a.classList.remove("save");
+
+        //find the smallest and largest y coordinates 
+        var h = calOffset("y", 0);
+
+        var min = nodes.reduce(minY);
+        var g = document.getElementById(min.nodeID);
+        var rect = g.getElementsByTagName('rect')[0];
+        var y = min.y - (rect.getAttribute('height') * 1);
+
+        h = y < 0 ? h - y : h;
+        // console.log('y: ' + y); console.log('h: ' + h);
+
+        //find the smallest and largest x coordinates 
+        var w = calOffset("x", 0);
+
+        min = nodes.reduce(minX);
+        g = document.getElementById(min.nodeID);
+        rect = g.getElementsByTagName('rect')[0];
+        var x = min.x - (rect.getAttribute('width') * 1);
+
+        w = x < 0 ? w - x : w;
+        // console.log('x: ' + x); console.log('w: ' + w);
+
+        svg2canvas2image(x, y, w, h, false); //create the image
+    }
+}
+
+/**
+ * Closes a popup if it's open
+ * @param {*} popupName - the name of the popup to close
+ * @return {void} Nothing
+ */
+function closePopupIfOpen(popupName) {
+    if (typeof (window[popupName]) != 'undefined' && !window[popupName].closed) {
+        window[popupName].close();
+    }
+}
+
+(function ($) {
+
+    // Creating a jQuery plugin:
+
+    $.generateFile = function (options) {
+
+        options = options || {};
+
+        if (!options.script || !options.filename || !options.content) {
+            throw new Error("Please enter all the required config options!");
+        }
+
+        // Creating a 1 by 1 px invisible iframe:
+
+        var iframe = $('<iframe>', {
+            width: 1,
+            height: 1,
+            frameborder: 0,
+            css: {
+                display: 'none'
+            }
+        }).appendTo('body');
+
+        var formHTML = '<form action="" method="post">' +
+            '<input type="hidden" name="filename" />' +
+            '<input type="hidden" name="content" />' +
+            '</form>';
+
+        // Giving IE a chance to build the DOM in
+        // the iframe with a short timeout:
+
+        setTimeout(function () {
+
+            // The body element of the iframe document:
+
+            var body = (iframe.prop('contentDocument') !== undefined) ?
+                iframe.prop('contentDocument').body :
+                iframe.prop('document').body;	// IE
+
+            body = $(body);
+
+            // Adding the form to the body:
+            body.html(formHTML);
+
+            var form = body.find('form');
+
+            form.attr('action', options.script);
+            form.find('input[name=filename]').val(options.filename);
+            form.find('input[name=content]').val(options.content);
+
+            // Submitting the form to download.php. This will
+            // cause the file download dialog box to appear.
+
+            form.submit();
+        }, 50);
+    };
+
+})(jQuery);
