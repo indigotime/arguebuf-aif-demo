@@ -4,6 +4,8 @@ Using Arguebuf-typescript - a TypeScript library for dealing with argument graph
 
 Using modified version of OVA3 - the latest release of the Online Visualisation of Argument analysis tool.
 
+Using Wllama - a browser-based LLM inference.
+
 # Usage
 
 1. Download the repository as a ZIP file and extract it.
