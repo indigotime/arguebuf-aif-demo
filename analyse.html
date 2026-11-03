@@ -373,6 +373,23 @@
 
   <!--  <a href="http://www.arg.tech" target="_blank" id="devby"><img src="res/img/arg-tech.svg" /></a> -->
   <div id="mainwrap">
+	<div id="AI">
+		<h2>Convert text to argument map, then visualize</h2>
+		<label>GPU layers: <input id="input_n_gpu_layers" value="6" type="number" /></label><br/>
+		<label for="btn_pick_file">Pick a local gguf file(s). <br> Please note: the model should be able to convert plain text to ArgDown. Recommended to use Llama-3.1-Argunaut-1-8B-SFT.
+		<input type="file" id="btn_pick_file" name="btn_pick_file" accept=".gguf" multiple></label><br>
+		<label>Prompt: <textarea id="input_prompt"></textarea></label><br/>
+		<label>Number of tokens: <input id="input_n_predict" value="2048" type="number" /></label><br/>
+		<label>Top K: <input id="input_top_k" value="45" type="number" step="1" min="1"/></label><br/>
+		<label>Top P: <input id="input_top_p" value="0.95" type="number" step="0.01" min="0.01" /></label><br/>
+		<button id="btn_run_cmpl">Convert to ArgDown</button>
+		<br/>
+		<br/>
+		ArgDown output: <br/>
+		<div id="output_cmpl"></div>
+		<h2>The visualization will be displayed bellow this line:</h2>
+	</div>
+
     <script>
       var w = window.innerWidth;
       var h = window.innerHeight;
@@ -407,5 +424,86 @@
     </div>
   </div>
 	<script src="arguebuf-vite-umd.js"></script>
+
+  <script type="module">
+    import { Wllama } from './res/js/wllama/esm/index.js';
+
+    const CONFIG_PATHS = {
+      default: './res/js/wllama/esm/wasm/wllama.wasm',
+    };
+
+    async function wl_main() {
+      setCmplDisable(true);
+      elemBtnPickFile.onchange = async (event) => {
+        const { files } = event.target;
+        if (files.length === 0) return;
+        elemBtnPickFile.disabled = true;
+        await startCompletions(files);
+      };
+    }
+
+    /////////////////////////////////////////////////////////////////////
+    // completions
+
+    async function startCompletions(files) {
+	if (files == null) {
+		return;
+	}
+        const wllama = new Wllama(CONFIG_PATHS);
+      //await wllama.cacheManager.clear();
+
+        wllama.setCompat('default');
+      
+	setCmplDisable(false);
+        await wllama.loadModel(files, {
+		n_gpu_layers: parseInt(elemNGPULayers.value)
+	});
+
+	elemBtnCompletions.onclick = async () => {
+          setCmplDisable(true);
+          elemOutputCmpl.textContent = '';
+          let fullText = "";
+          try {
+            await wllama.createCompletion({
+              prompt: elemInput.textContent,
+              max_tokens: parseInt(elemNPredict.value),
+              temperature: 0.2,
+              //top_k: parseInt(elemTopK.value),
+              top_p: parseFloat(elemTopP.value),
+              stream: true,
+              onData: (chunk) => {
+		fullText = fullText += chunk.choices[0].text;
+                elemOutputCmpl.textContent = fullText;
+              }
+          });
+          loadFile(fullText.slice(fullText.indexOf("[")));
+        } catch (ex) {
+          console.error(ex);
+          console.error(ex.stack);
+          alert('Error: ' + ex.message);
+        }
+        setCmplDisable(false);
+      };
+    }
+
+    // DOM elements: completions
+    const elemBtnPickFile = document.getElementById('btn_pick_file');
+    const elemInput = document.getElementById('input_prompt');
+    const elemNPredict = document.getElementById('input_n_predict');
+    const elemNGPULayers = document.getElementById('input_n_gpu_layers');
+    const elemTopK = document.getElementById('input_top_k');
+    const elemTopP = document.getElementById('input_top_p');
+    const elemBtnCompletions = document.getElementById('btn_run_cmpl');
+    const elemOutputCmpl = document.getElementById('output_cmpl');
+    // utils
+    const setCmplDisable = (disabled) => {
+      elemInput.disabled = disabled;
+      elemNPredict.disabled = disabled;
+      elemBtnCompletions.disabled = disabled;
+    };
+
+    wl_main();
+  </script>
+
 </body>
 </html>
