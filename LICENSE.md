@@ -36,6 +36,14 @@ distributed as a single JavaScript file.
 The applicable license and original copyright notice are preserved in
 [`LICENSES/arguebuf-typescript/LICENSE.MD`](LICENSES/arguebuf-typescript/LICENSE.MD).
 
+## Wllama
+
+This project uses the browser build of
+[wllama](https://github.com/ngxson/wllama)
+
+The applicable license and original copyright notice are preserved in
+[`LICENSES/wllama/LICENSE.MD`](LICENSES/wllama/LICENSE.MD).
+
 ## Original contributions
 
 Original contributions in this repository that are not part of OVA3 or
